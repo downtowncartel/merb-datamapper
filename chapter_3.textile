@@ -40,6 +40,29 @@ h3. Generating an App
 </code>
 </pre>
 
+h4. Default Layout
+
+<pre>
+<code class="sh">
+  merb+datamapper $ ls community_shelf/
+  Rakefile	app		autotest	config		public		spec		test
+</code>
+</pre>
+
+<pre>
+<code class="sh">
+  merb+datamapper $ ls community_shelf/config/
+  environments	init.rb		rack.rb		router.rb
+</code>
+</pre>
+
+<pre>
+<code class="sh">
+  merb+datamapper $ ls community_shelf/config/environments/
+  development.rb	production.rb	rake.rb		test.rb
+</code>
+</pre>
+
 h3. Configuring init.rb
 
 <table>
