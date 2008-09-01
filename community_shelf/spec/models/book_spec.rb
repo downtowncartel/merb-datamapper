@@ -33,7 +33,7 @@ describe Book do
   end
 
   describe "Validations" do
-    it "should validate the short_title or long_title is present through the title presence validation" do
+    it "should ensure the short_title or long_title is present through the title presence validation" do
       book = Book.new(:short_title => nil, :long_title => nil)
 
       book.should_not be_valid
