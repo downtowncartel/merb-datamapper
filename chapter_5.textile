@@ -1,0 +1,179 @@
+h1. Chapter 5 - Power Routing
+
+h2. Router 101
+
+h4. config/router.rb
+
+<pre>
+<code class="ruby">
+Merb.logger.info("Compiling routes...")
+Merb::Router.prepare do |r|
+  #....
+
+  r.to(:controller => 'books') do |books|
+    books.match('/book/:slug').to(:action => 'show').name(:book)
+    books.match('/books').to(:action => 'index')
+    books.match('/books/:term').to(:action => 'index').name(:books)
+  end
+end
+</code>
+</pre>
+
+
+h3. Routing Tips
+
+* keep all your routes in <b>r.to(:controller => ...)</b> and/or <b>r.to(:namespace => ...)</b>.
+* only name the last route if you are grouping routes.
+* keep your routes explicit.
+* if your route contains logic _beyond_ normal routing logic, spec it!
+* use <b>merb.show_routes</b> from the merb console(<b>merb -i</b>) to get a printout of your routes.
+
+h3. Books Controller
+
+h4. app/controllers/books.rb
+
+<pre>
+<code class="ruby">
+class Books < Application
+
+  def index(term = "a", page = 1, per_page = 5)
+    @term = term
+    @books, @pagination_info = Book.by_catalog(term).paginate(page.to_i, per_page.to_i)
+
+    raise NotFound if @pagination_info[:count] == 0
+
+    display @books
+  end
+
+  def show(slug)
+    @book = Book.first(:slug => slug) || raise(NotFound, :book_slug => slug)
+
+    display @book
+  end
+
+  #...
+end
+</code>
+</pre>
+
+h2. Power Routes
+
+h4. config/router.rb
+
+<pre>
+<code class="ruby">
+Merb.logger.info("Compiling routes...")
+Merb::Router.prepare do |r|
+  r.to(:controller => 'books') do |books|
+    books.match(%r'/book/((?:\d{10})|(?:\d{13}))$').to(:action => 'isbn_lookup', :isbn => '[1]')
+  end
+
+  #....
+end
+</code>
+</pre>
+
+h4. app/controllers/books.rb
+
+<pre>
+<code class="ruby">
+class Books < Application
+
+  def index(term = "a", page = 1, per_page = 5)
+    @term = term
+    @books, @pagination_info = Book.by_catalog(term).paginate(page.to_i, per_page.to_i)
+
+    raise NotFound if @pagination_info[:count] == 0
+
+    display @books
+  end
+
+  def show(slug)
+    @book = Book.first(:slug => slug) || raise(NotFound, :book_slug => slug)
+
+    display @book
+  end
+
+  #...
+end
+</code>
+</pre>
+
+h3. Merb Tips
+
+* If an action returns (i.e. the last line) redirect content, the user is redirected.
+* Use the <b>redirect(path)</b> method to create a redirection response, just make sure it's returned to the user!
+* use the <b>url(route_name, options = {})</b> method to generate a relative path from a named route.
+
+h3. Route Specs
+
+h4. spec/routes/books_route_spec.rb
+
+<pre>
+<code class="ruby">
+require File.join( File.dirname(__FILE__), '..', "spec_helper" )
+
+describe "The :books named route" do
+  it "should map url(:books) to '/books/'" do
+    url(:books).should == '/books/'
+  end
+
+  it "should map url(:books, :term => 'z') to '/books/z'" do
+    url(:books, :term => 'z').should == '/books/z'
+  end
+
+  it "should route GET '/books' to Books#index" do
+    request_to('/books', :get).should route_to(Books, :index)
+  end
+
+  it "should route GET '/books/t' to Books#index with {:term => 't'}" do
+    request_to('/books/t').should route_to(Books, :index).with(:term => 't')
+  end
+end
+
+describe "The :book named route" do
+  it "should map url(:book, :slug => 'the-ruby-way') to '/book/the-ruby-way'" do
+    url(:book, :slug => 'the-ruby-way').should == '/book/the-ruby-way'
+  end
+
+  it "should route GET '/book/the-ruby-way' to Books#show with {:slug => 'the-ruby-way'}" do
+    request_to('/book/the-ruby-way').should route_to(Books, :show).with(:slug => 'the-ruby-way')
+  end
+end
+
+describe "The Boosk#isbn_lookup anonymous route" do
+  it "should route GET '/book/1234567890' (a 10 digit ISBN) to Books#isbn_lookup with {:isbn => '1234567890'}" do
+    request_to('/book/1234567890').should route_to(Books, :isbn_lookup).with(:isbn => '1234567890')
+  end
+
+  it "should route GET '/book/1234567891011' (a 13 digit ISBN) to Books#isbn_lookup with {:isbn => '1234567891011'}" do
+    request_to('/book/1234567891011').should route_to(Books, :isbn_lookup).with(:isbn => '1234567891011')
+  end
+
+  it "should not route GET '/book/12345678910' (a 11 digit ISBN) to Books#isbn_lookup" do
+    request_to('/book/12345678910').should_not route_to(Books, :isbn_lookup)
+  end
+end
+</code>
+</pre>
+
+h2. Populating your DB
+
+h3. lib/tasks/fixtures.rake
+
+<pre>
+<code class="ruby">
+namespace :dm do
+  namespace :db do
+    desc "populate the database with some randomly generated fixtures"
+    task :populate => :automigrate do
+      require 'dm-sweatshop'
+      require Merb.root / :spec / :fixtures
+
+      10.times { User.gen }
+      500.times { Book.gen }
+    end
+  end
+end
+</code>
+</pre>
