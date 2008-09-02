@@ -6,7 +6,7 @@ namespace :dm do
       require Merb.root / :spec / :fixtures
 
       10.times { User.gen }
-      50.times { Book.gen }
+      500.times { Book.gen }
     end
   end
 end

@@ -1,0 +1,24 @@
+.span-24.last
+  %h2.alt Book List
+.span-22.postpend-2.last
+  %span
+    -('a'..'z').each do |term|
+      =(term == @term) ? term : link_to(term, url(:books, :term => term))
+  %hr
+
+.span-20.prepend-2.postpend-2.last
+  =partial 'books/list', :books => @books.all(:order => [:slug.asc])
+
+.span-22.postpend-2.last
+  %hr
+  %span
+    -unless @pagination_info[:page] == 1
+      =link_to(:<<, url(:books, :term => @term))
+      =link_to(:<, url(:books, :term => @term, :page => @pagination_info[:page].to_i - 1))
+    
+    -1.upto(@pagination_info[:pages]) do |page|
+      =(page == @pagination_info[:page]) ? page : link_to(page, url(:books, :term => @term, :page => page))
+    
+    -unless @pagination_info[:page] == @pagination_info[:pages]
+      =link_to(:>, url(:books, :term => @term, :page => @pagination_info[:page].to_i + 1))
+      =link_to(:>>, url(:books, :term => @term, :page => @pagination_info[:pages]))

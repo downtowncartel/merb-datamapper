@@ -1,6 +1,6 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec_helper.rb')
 
-describe "posts/show.html" do
+describe "books/show.html" do
   before(:each) do
     DataMapper.auto_migrate!
     @book = Book.gen(:owner => User.gen)

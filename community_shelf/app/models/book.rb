@@ -20,9 +20,24 @@ class Book
 
 
   validates_present :title, :owner
+  validates_with_method :validate_isbn
 
+
+  def self.by_catalog(term)
+    all(:slug.like => "#{term}%")
+  end
 
   def title
     @short_title.blank? ? @long_title : @short_title
+  end
+
+  def validate_isbn
+    if !self.isbn.blank? && self.isbn.size != 13
+      [false, "'#{@isbn}' is in an invalid ISBN format"]
+    elsif ISBN_Tools.is_valid?(@isbn)
+      true
+    else
+      [false, "'#{@isbn}' is an invalid ISBN number"]
+    end
   end
 end

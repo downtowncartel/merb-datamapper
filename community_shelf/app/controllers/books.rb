@@ -1,9 +1,12 @@
 class Books < Application
 
-  # ...and remember, everything returned from an action
-  # goes to the client...
-  def index
-    render
+  def index(term = "a", page = 1, per_page = 5)
+    @term = term
+    @books, @pagination_info = Book.by_catalog(term).paginate(page.to_i, per_page.to_i)
+
+    raise NotFound if @pagination_info[:count] == 0
+
+    display @books
   end
 
   def show(slug)

@@ -1,8 +1,29 @@
+# community_shelf/spec/controllers/books.rb
+
 require File.join(File.dirname(__FILE__), '..', 'spec_helper.rb')
 
 describe Books, "index action" do
   before(:each) do
-    dispatch_to(Books, :index)
+    DataMapper.auto_migrate!
+    5.times {User.gen}
+  end
+
+  it "should query by the catalog term, paginate, then display the results successfully" do
+    term = ('a'..'z').pick
+    matching_catalog = 50.of {Book.gen(:short_title => /#{term}[:sentence:]{3,5}/.gen)}
+
+    dispatch_to(Books, :index, :term => term) { |controller|
+      controller.should_receive(:display)
+    }.should be_successful
+  end
+
+  it "should raise a NotFound if the catalog is empty" do
+    term = ('a'..'z').pick
+    Book.by_catalog(term).should be_empty
+
+    lambda {
+      dispatch_to(Books, :index, :term => term)
+    }.should raise_error(Merb::ControllerExceptions::NotFound)
   end
 end
 

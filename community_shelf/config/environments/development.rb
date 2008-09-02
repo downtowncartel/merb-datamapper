@@ -11,7 +11,3 @@ Merb::Config.use { |c|
 
 DataMapper.setup(:default, "sqlite3:/tmp/community_shelf.db")
 DataObjects::Sqlite3.logger = DataObjects::Logger.new(Merb.log_file, 0)
-
-Merb::BootLoader.after_app_loads do
-  DataMapper.auto_migrate!
-end
