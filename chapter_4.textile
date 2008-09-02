@@ -2,23 +2,7 @@ h1. Chapter 4 - Red Green Refactor
 
 h2. Model Specs
 
-h4. app
-
-<pre>
-<code class="ruby">
-  merb+datamapper $ ls community_shelf/app/
-  controllers	helpers		models		views
-</code>
-</pre>
-
-h4. app/models
-
-<pre>
-<code class="ruby">
-  merb+datamapper $ ls community_shelf/app/models/
-  book.rb		reservation.rb	user.rb
-</code>
-</pre>
+h3. Book
 
 h4. app/models/book.rb
 
@@ -55,6 +39,17 @@ end
 </code>
 </pre>
 
+h3. Association CheetSheet
+
+|_.    |_\2.declared in|_\2.declared for|
+|_.----|{background:#ddd}.association type|{background:#ddd}.multiplicity|{background:#ddd}.association type|{background:#ddd}.multiplicity|
+|{background:#ddd}.belongs_to|child|1|parent|1 OR n|
+|{background:#ddd}.has 1|parent|1|child|1|
+|{background:#ddd}.has n|parent|1|child|n|
+|{background:#ddd}.has n, :through => Resource|parent|n|parent|n|
+
+h3. Book Specs
+
 h4. spec/models/book_spec.rb
 
 <pre>
@@ -76,11 +71,25 @@ describe Book do
       book.title.should be_blank
     end
 
-    #....
+    it "should return the short title unless it's blank" do
+      book = Book.new(:short_title => "short", :long_title => "long")
+      book.title.should == book.short_title
+
+      book.short_title = ""
+      book.title.should_not == book.short_title
+    end
+
+    it "should return the long title only if the short title is blank" do
+      book = Book.new(:long_title => "long")
+      book.title.should == book.long_title
+
+      book.short_title = "short"
+      book.title.should_not == book.long_title
+    end
   end
 
   describe "Validations" do
-    it "should validate the short_title or long_title is present through the title presence validation" do
+    it "should ensure the short_title or long_title is present through the title presence validation" do
       book = Book.new(:short_title => nil, :long_title => nil)
 
       book.should_not be_valid
@@ -91,8 +100,6 @@ describe Book do
 end
 </code>
 </pre>
-
-
 
 h3. Running the Model Specs
 
@@ -110,14 +117,7 @@ h3. Running the Model Specs
 
 h2. Controller Specs
 
-h4. app/controllers
-
-<pre>
-<code class="ruby">
-  community_shelf $ ls app/controllers/
-  application.rb	books.rb	exceptions.rb
-</code>
-</pre>
+h3. Books Controller
 
 h4. app/controllers/books.rb
 
@@ -139,6 +139,14 @@ class Books < Application
 end
 </code>
 </pre>
+
+h4. Controller Tips
+
+* <b>render</b> your content, <b>display</b> your resource(s)!
+* everything returned from an action goes to the client.
+* raise Exceptions for <b>non-200</b> responses.
+
+h3. Books Specs
 
 h4. spec/controllers/books.rb
 
@@ -174,6 +182,12 @@ end
 </code>
 </pre>
 
+h4. Controller Spec Tips
+
+* when using <b>dispatch_to</b>, be sure to mock out the call to <b>display</b>/<b>render</b>.
+* avoid specifying the HTTP request method.  e.g. GET, POST, etc.
+* use <b>lambda {...}.should raise_error(...)</b> to test client errors.
+
 h3. Running the Controller Specs
 
 <pre>
@@ -189,6 +203,8 @@ h3. Running the Controller Specs
 </pre>
 
 h2. View Specs
+
+h3. books/show.html View
 
 h4. app/views/books/show.html.haml
 
@@ -226,13 +242,15 @@ h4. app/views/books/show.html.haml
 </code>
 </pre>
 
+h3. books/show.html Spec
+
 h4. spec/views/books/show_html_spec.rb
 
 <pre>
 <code>
 require File.join(File.dirname(__FILE__), '..', '..', 'spec_helper.rb')
 
-describe "posts/show.html" do
+describe "books/show.html" do
   before(:each) do
     DataMapper.auto_migrate!
     @book = Book.gen(:owner => User.gen)
@@ -255,3 +273,45 @@ end
 </code>
 </pre>
 
+h4. View Spec Tips
+
+* view specs are about testing the <b>correctness</b> of the <b>DOM</b>, _not_ the look & feel.
+* <b>have_tag</b>/<b>have_selector</b> takes an <b>intersection</b> on the block, _not_ a <b>union</b>.
+
+h2. Generating Fixtures
+
+h3. Example Fixtures
+
+h4. spec/fixtures.rb
+
+<pre>
+<code class="ruby">
+isbns =  %w[9780874176292 ... 9780425157299]
+
+Book.fix {{
+  :isbn         => isbns.pick,
+  :created_at   => (1..100).pick.days.ago,
+  :short_title  => (short = /[:sentence:]{3,5}/.gen[0...50]),
+  :long_title   => /#{short} (\w+){1,3}/.gen,
+  :author       => "#{/\w+/.gen.capitalize} #{/\w+/.gen.capitalize}",
+  :publisher    => "#{/\w+/.gen.capitalize} #{/\w+/.gen.capitalize}",
+  :notes        => /[:paragraph:]?/.gen,
+  :owner => User.pick
+}}
+
+User.fixture {{
+  :username => username = /\w+/.gen.downcase,
+  :identity => "http://#{username}.example.com",
+  :email    => "#{username}@example.com",
+  :name     => "#{/\w+/.gen.capitalize} #{/\w+/.gen.capitalize}"
+}}
+</code>
+</pre>
+
+h3. Fixture CheetSheet
+
+* double curly braces({{) are used to pass a hash in a block (Proc).
+* Resource.<b>fixture(label = :default)</b> -- defines a fixture for a resource.  Accepts a context label.  Abbreviated as <b>fix</b>.
+* Resource.<b>generate(label = :default, attributes = {})</b> -- _create_'s an instance of a fixture.  Attributes can be overwritten with the attributes hash.  Abbreviated as <b>gen</b>.
+* Resource.<b>make(label = :default, attributes = {})</b> -- _new_'s an instance of a fixture.  Attributes can be overwritten with the attributes hash.
+* Resource.<b>pick(label = :default)</b> -- Randomly selects an instance for a fixture.
