@@ -14,4 +14,15 @@ class User
 
   validates_is_unique :identity, :username, :email
   validates_format    :email, :as => :email_address
+
+  def short_name
+    return name if name.split('').size < 17
+    
+    first, last = *name.split
+    if first.size > last.size
+      "#{first[0, 1]}. #{last}"
+    else
+      "#{first} #{last[0, 1]}."
+    end
+  end
 end

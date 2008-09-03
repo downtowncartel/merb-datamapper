@@ -1,0 +1,231 @@
+h1. Chapter 6 - Query
+
+h3. Fixtures & Lambdas
+
+h4. spec/fixtures_helper.rb
+
+<pre>
+<code class="ruby">
+def completed_reservation(attrs = {})
+  lambda do
+    attrs[:user] = User.pick
+
+    begin
+      attrs[:book] = Book.pick
+
+      start = (11..100).pick
+      start_date, end_date = start.days.ago, (1..start).pick.days.ago
+    end until (attrs[:book].available?(start_date, end_date))
+
+    {:created_at => start_date.to_datetime, :due_at => (start_date + 10.days).to_datetime, :returned_at  => end_date}.merge(attrs)
+  end
+end
+
+def overdue_reservation(attrs = {})
+  lambda do
+    attrs[:returned_at] = nil
+    attrs[:user] = User.pick
+
+    begin
+      attrs[:book] = Book.pick
+
+      start_date, end_date = (11..100).pick.days.ago, 0.days.ago
+    end until (attrs[:book].available?(start_date, end_date))
+
+    {:created_at => start_date.to_datetime, :due_at => (start_date + 10.days).to_datetime}.merge(attrs)
+  end
+end
+
+def checked_out_reservation(attrs = {})
+  lambda do
+    attrs[:returned_at] = nil
+    attrs[:user] = User.pick
+
+    begin
+      attrs[:book] = Book.pick
+
+      start_date, end_date = (1...10).pick.days.ago, 0.days.ago
+    end until (attrs[:book].available?(start_date, end_date))
+
+    {:created_at => start_date.to_datetime, :due_at => (start_date + 10.days).to_datetime}.merge(attrs)
+  end
+end
+</code>
+</pre>
+
+h2. Models
+
+h3. Book
+
+h4. app/models/book.rb
+
+<pre>
+<code class="ruby">
+class Book
+  include DataMapper::Resource
+
+  #....
+
+  belongs_to :owner, :class_name => "User"
+  has n, :reservations
+
+  #....
+
+  def self.by_catalog(term)
+    all(:slug.like => "#{term}%")
+  end
+
+  def self.added_after(start_time)
+    all(:created_at.gt => start_time, :order => [:created_at.desc])
+  end
+
+  def self.added_before(end_time)
+    all(:created_at.lte => end_time, :order => [:created_at.desc])
+  end
+
+  def title
+    @short_title.blank? ? @long_title : @short_title
+  end
+
+  #....
+
+  def overdue?
+    not reservations.overdue.empty?
+  end
+
+  def available?(*args)
+    reservations.overlapping(*args).empty?
+  end
+end
+</code>
+</pre>
+
+h3. Query Attribute Operator CheetSheet
+
+|_{background:#ddd}.method|_{background:#ddd}.operation|_{background:#ddd}.SQL operation|_{background:#ddd}.example|_{background:#ddd}.SQL|
+|{background:#ddd}.eql|equal|=|Foo.all(:bar.eql => 42)|'foos'.'bar' = 42|
+|{background:#ddd}.gt|greater than|>|Foo.all(:bar.gt => 42)|'foos'.'bar' > 42|
+|{background:#ddd}.gte|greater than or equal|>=|Foo.all(:bar.gte => 42)|'foos'.'bar' >= 42|
+|{background:#ddd}.lt|less than|<|Foo.all(:bar.lt => 42)|'foos'.'bar' < 42|
+|{background:#ddd}.lte|less than or equal|<=|Foo.all(:bar.lte => 42)|'foos'.'bar' <= 42|
+|{background:#ddd}.not|not equal|!=|Foo.all(:bar.not => 42)|'foos'.'bar' <> 42|
+|{background:#ddd}.like|search operator|LIKE|Foo.all(:bar.like => "%baz%")|'foos'.'bar' LIKE '%baz'|
+|{background:#ddd}.in|set inclusion|IN|Foo.all(:bar.in => [1, 2, 3])|'foos'.'bar' IN (1,2,3)|
+|{background:#ddd}.asc|ascending sort|ORDER BY |Foo.all(:bar.lt => 42,  :order => [:bar.asc])|ORDER BY 'bar'|
+|{background:#ddd}.asc|descending sort|ORDER BY DESC|Foo.all(:bar.gt => 42,  :order => [:bar.desc])|ORDER BY 'bar' DESC|
+
+h3. Query Clause CheetSheet
+
+* Add a WHERE clause: all(:property_name.operator => value)
+* Add a JOIN clause: all(Model.association.property.operator => value)
+* Add a LIMIT clause: all(:limit => quantity)
+* Add a LIMIT 1 clause: all.first
+* Add an OFFSET clause: all(:offset => quantity)
+* Add an ORDER clause: all(:order => [:property_name.operator])
+* Add a SELECT COUNT(*): all.count
+
+h3. Query Tips
+
+* <b>Model.all</b> returns a <b>DataMapper::Collection</b> object.
+* A <b>DataMapper::Collection</b> object contains the AST to generate a query to populate the collection.
+* The query will not execute until a <b>Collection</b> method is called. e.g. <b>each</b>, <b>map</b>.
+* A <b>DataMapper::Collection</b> object can call class level methods on the object it contains.
+* <b>DataMapper::Collection</b> objects can be chained.
+
+h3. Reservation
+
+h4. app/models/reservation.rb
+
+<pre>
+<code class="ruby">
+class Reservation
+  include DataMapper::Resource
+
+  property :id,           Serial
+  property :created_at,   DateTime,   :nullable => false
+  property :due_at,       DateTime,   :nullable => false
+  property :returned_at,  DateTime
+  property :book_id,      Integer
+  property :user_id,      Integer
+
+
+  belongs_to :user
+  belongs_to :book
+
+
+  validates_present :user, :book
+
+  def self.checked_out
+    all(:returned_at => nil)
+  end
+
+  def self.overdue
+    checked_out.all(:due_at.lt => DateTime.now)
+  end
+
+  def self.by(user)
+    all(Reservation.user.id => user.id)
+  end
+
+  def self.for(book)
+    all(Reservation.book.id => book.id)
+  end
+
+  def self.starting_in(start_time, end_time)
+    all(:created_at.gte => start_time, :created_at.lte => end_time)
+  end
+
+  def self.ending_in(start_time, end_time)
+    all(:returned_at.gte => start_time, :returned_at.lte => end_time)
+  end
+
+  def self.active_in(start_time, end_time)
+    starting_in(start_time, end_time) + ending_in(start_time, end_time)
+  end
+
+  def self.overlapping(start_time, end_time = DateTime.now)
+    active_in(start_time, end_time) + all(:returned_at => nil, :created_at.lte => start_time)
+  end
+
+  #def self.overlapping(start_time, end_time = DateTime.now)
+  #  all(:conditions => ['((created_at >= ? AND created_at <= ?) OR (returned_at >= ? AND returned_at <= ?) OR (returned_at IS ? AND (created_at <= ?)))', start_time, end_time, start_time, end_time, nil, start_time])
+  #end
+
+  def checkin
+    update_attributes(:returned_at => DateTime.now)
+  end
+end
+</code>
+</pre>
+
+h3. Recently Added Books View
+
+h4. app/views/books/_recently_added.html.haml
+
+<pre>
+<code class="ruby">
+%h3.alt Recently Added Books
+%ul
+  -unless Book.added_after(1.day.ago).empty?
+    %li.break
+      %span.alt.break Today
+      %hr
+  -Book.added_after(1.day.ago).each do |book|
+    %li.book
+      =partial 'books/short', :book => book
+  -unless Book.added_after(2.days.ago).added_before(1.day.ago).empty?
+    %li.break
+      %span.alt.break Yesterday
+      %hr
+  -Book.added_after(2.days.ago).added_before(1.day.ago).each do |book|
+    %li.book
+      =partial 'books/short', :book => book
+  -unless Book.added_after(1.week.ago).added_before(2.days.ago).empty?
+    %li.break
+      %span.alt.break Last Week
+      %hr
+  -Book.added_after(1.week.ago).added_before(2.days.ago).each do |book|
+    %li.book
+      =partial 'books/short', :book => book
+</code>
+</pre>

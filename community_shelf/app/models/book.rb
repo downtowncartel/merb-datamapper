@@ -27,6 +27,14 @@ class Book
     all(:slug.like => "#{term}%")
   end
 
+  def self.added_after(start_time)
+    all(:created_at.gt => start_time, :order => [:created_at.desc])
+  end
+
+  def self.added_before(end_time)
+    all(:created_at.lte => end_time, :order => [:created_at.desc])
+  end
+
   def title
     @short_title.blank? ? @long_title : @short_title
   end
@@ -39,5 +47,13 @@ class Book
     else
       [false, "'#{@isbn}' is an invalid ISBN number"]
     end
+  end
+
+  def overdue?
+    not reservations.overdue.empty?
+  end
+
+  def available?(*args)
+    reservations.overlapping(*args).empty?
   end
 end

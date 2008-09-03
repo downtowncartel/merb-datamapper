@@ -1,4 +1,4 @@
-.span-18.postpend-6.last
+.span-18
   %h2
     =@book.title
   .span-10.prepend-2.postpend-6
@@ -27,3 +27,30 @@
     %h3.alt Notes
   .span-12.prepend-3.postpend-3
     =@book.notes
+
+.span-6.last
+  %h3
+    -if @book.overdue?
+      %span.alt.red Overdue
+    -elsif @book.available?
+      %span.alt Available
+    -else
+      %span.alt Checked Out
+  %h3
+    %span.alt History
+  -Reservation.for(@book).all(:order => [:created_at.desc]).each do |reservation|
+    -unless reservation.returned_at.nil?
+      .span-6.last
+        .span-1
+          %span.alt In
+        .span-3
+          %span.user=reservation.user.short_name
+        .span-2.last
+          %span.date=reservation.returned_at.strftime("%d/%m/%Y")
+    .span-6.last
+      .span-1
+        %span.alt Out
+      .span-3
+        %span.user=reservation.user.short_name
+      .span-2.last
+        %span.date=reservation.created_at.strftime("%d/%m/%Y")

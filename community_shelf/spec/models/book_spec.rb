@@ -10,12 +10,50 @@ describe Book do
 
     it "should query only books with slug beginning with the search term" do
       term = ('a'..'y').pick
-      matching_catalog = 50.of {Book.gen(:short_title => /#{term}[:sentence:]{3,5}/.gen)}
-      external_catalog = 50.of {Book.gen(:short_title => /#{term.succ}[:sentence:]{3,5}/.gen)}
+      matching_catalog = 5.of {Book.gen(:short_title => /#{term}[:sentence:]{3,5}/.gen)}
+      external_catalog = 5.of {Book.gen(:short_title => /#{term.succ}[:sentence:]{3,5}/.gen)}
 
       Book.by_catalog(term).each do |book|
         matching_catalog.should include(book)
         external_catalog.should_not include(book)
+      end
+    end
+  end
+
+  describe ".added_after" do
+    before(:each) do
+      DataMapper.auto_migrate!
+      5.times {User.gen}
+    end
+
+    it "should query only books created after a timestamp" do
+      timestamp = (1...10).pick.days.ago
+
+      in_range = 5.of {Book.gen(:created_at => timestamp)}
+      out_of_range = 5.of {Book.gen(:created_at => (10..20).pick.days.ago)}
+
+      Book.added_after(timestamp).each do |book|
+        in_range.should include(book)
+        out_of_range.should_not include(book)
+      end
+    end
+  end
+
+  describe ".added_before" do
+    before(:each) do
+      DataMapper.auto_migrate!
+      5.times {User.gen}
+    end
+
+    it "should query only books created after a timestamp" do
+      timestamp = (10..20).pick.days.ago
+
+      in_range = 5.of {Book.gen(:created_at => timestamp)}
+      out_of_range = 5.of {Book.gen(:created_at => (1...10).pick.days.ago)}
+
+      Book.added_before(timestamp).each do |book|
+        in_range.should include(book)
+        out_of_range.should_not include(book)
       end
     end
   end
