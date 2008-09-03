@@ -1,0 +1,111 @@
+h1. Chapter 8 - STI
+
+h2. Activities
+
+h3. Activity Model
+
+h4. app/models/activity.rb
+
+<pre>
+<code class="ruby">
+class Activity
+  include DataMapper::Resource
+
+  property :id,           Serial
+  property :type,         Discriminator
+  property :created_at,   DateTime
+  property :user_id,      Integer
+
+  belongs_to :user
+
+  validates_present :user
+
+  def self.recent
+    all(:created_at.gte => 1.week.ago, :order => [:created_at.desc])
+  end
+
+  class Checkout < Activity
+    property :reservation_id,    Integer
+
+    belongs_to :reservation
+
+    validates_present :reservation
+  end
+
+  class Checkin < Activity
+    property :reservation_id,   Integer
+
+    belongs_to :reservation
+
+    validates_present :reservation
+  end
+
+  class Submission < Activity
+    property :book_id,    Integer
+
+    belongs_to :book
+
+    validates_present :book
+  end
+
+  class Signup < Activity; end
+
+  class Review < Activity
+    property :review_id, Integer
+
+    belongs_to :review
+  end
+end
+</code>
+</pre>
+
+h4. STI CheetSheet
+
+* STI is great for de-normalizing & managing many <b>has n</b> relationships.
+* Always add a <b>property :type,         Discriminator</b> property to your base class.
+* ParentModel.all(:type => ChildModel) == ChildModel.all
+
+h3. AOP
+
+h4. app/models/reservation.rb
+
+<pre>
+<code class="ruby">
+class Reservation
+  include DataMapper::Resource
+
+  #....
+
+  after :save, :record_activity
+
+  #....
+
+  def record_activity
+    if self.returned_at.nil?
+      Activity::Checkout.create(:reservation => self, :created_at => self.created_at, :user => self.user)
+    else
+      Activity::Checkin.create(:reservation => self, :created_at => self.returned_at, :user => self.user)
+    end
+  end
+end
+</code>
+</pre>
+
+h4. app/models/book.rb
+
+<pre>
+<code class="ruby">
+class Book
+
+  #....
+
+  after :create,  :record_activity
+
+  #....
+
+  def record_activity
+    Activity::Submission.create(:book => self, :user => self.owner)
+  end
+end
+</code>
+</pre>

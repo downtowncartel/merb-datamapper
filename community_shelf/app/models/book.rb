@@ -24,7 +24,7 @@ class Book
 
 
   before :valid?, :set_timestamp_properties
-
+  after :create,  :record_activity
 
   def self.by_catalog(term)
     all(:slug.like => "#{term}%")
@@ -58,5 +58,9 @@ class Book
 
   def available?(*args)
     reservations.overlapping(*args).empty?
+  end
+
+  def record_activity
+    Activity::Submission.create(:book => self, :user => self.owner)
   end
 end

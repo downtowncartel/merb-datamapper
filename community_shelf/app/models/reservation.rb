@@ -15,6 +15,8 @@ class Reservation
 
   validates_present :user, :book
 
+  after :save, :record_activity
+
   def self.checked_out
     all(:returned_at => nil)
   end
@@ -53,5 +55,13 @@ class Reservation
 
   def checkin
     update_attributes(:returned_at => DateTime.now)
+  end
+
+  def record_activity
+    if self.returned_at.nil?
+      Activity::Checkout.create(:reservation => self, :created_at => self.created_at, :user => self.user)
+    else
+      Activity::Checkin.create(:reservation => self, :created_at => self.returned_at, :user => self.user)
+    end
   end
 end

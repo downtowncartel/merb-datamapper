@@ -15,6 +15,10 @@ class User
   validates_is_unique :identity, :username, :email
   validates_format    :email, :as => :email_address
 
+
+  after   :create, :record_activity
+
+
   def short_name
     return name if name.split('').size < 17
     
@@ -24,5 +28,9 @@ class User
     else
       "#{first} #{last[0, 1]}."
     end
+  end
+
+  def record_activity
+    Activity::Signup.create(:user => self)
   end
 end
