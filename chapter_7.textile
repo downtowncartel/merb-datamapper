@@ -91,3 +91,29 @@ Merb::Router.prepare do |r|
 end
 </code>
 </pre>
+
+h3. Accepts/Content-Type
+
+h4. app/controllers/books.rb
+
+<pre>
+<code class="ruby">
+class Books < Application
+
+  # provides :yaml, :json, :xml
+
+  def index(term = "a", page = 1, per_page = 5)
+    provides :yaml, :json, :xml
+
+    @term = term
+    @books, @pagination_info = Book.by_catalog(term).paginate(page.to_i, per_page.to_i)
+
+    raise NotFound if @pagination_info[:count] == 0
+
+    display @books
+  end
+
+  #....
+end
+</code>
+</pre>

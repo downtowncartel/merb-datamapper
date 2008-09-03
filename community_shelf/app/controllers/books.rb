@@ -1,6 +1,10 @@
 class Books < Application
 
+  # provides :yaml, :json, :xml
+
   def index(term = "a", page = 1, per_page = 5)
+    provides :yaml, :json, :xml
+
     @term = term
     @books, @pagination_info = Book.by_catalog(term).paginate(page.to_i, per_page.to_i)
 
