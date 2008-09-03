@@ -22,4 +22,21 @@ class Books < Application
 
     redirect url(:book, :slug => @book.slug)
   end
+
+  def new
+    @message = request.message
+    @book = Book.new
+
+    display @book
+  end
+
+  def create(book)
+    @book = Book.new(book.merge(:owner => session.user))
+
+    if @book.save
+      redirect(url(:new_book), :message => "\"#{@book.short_title}\" has been added")
+    else
+      display @book, "books/new"
+    end
+  end
 end

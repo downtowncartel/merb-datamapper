@@ -12,9 +12,11 @@ Merb.push_path(:lib, Merb.root / :lib)
 
 require 'isbn/tools'
 require 'openid'
+require 'openid/store/filesystem'
 require 'dm-aggregates'
 require 'dm-is-permalink'
 require 'dm-paginate'
+require 'dm-timestamps'
 require 'dm-types'
 require 'dm-validations'
 require 'merb-action-args'

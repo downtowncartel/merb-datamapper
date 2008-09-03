@@ -43,7 +43,7 @@ class Reservation
     starting_in(start_time, end_time) + ending_in(start_time, end_time)
   end
 
-  def self.overlapping(start_time, end_time = DateTime.now)
+  def self.overlapping(start_time = DateTime.now, end_time = DateTime.now)
     active_in(start_time, end_time) + all(:returned_at => nil, :created_at.lte => start_time)
   end
 

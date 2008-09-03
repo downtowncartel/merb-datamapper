@@ -23,6 +23,9 @@ class Book
   validates_with_method :validate_isbn
 
 
+  before :valid?, :set_timestamp_properties
+
+
   def self.by_catalog(term)
     all(:slug.like => "#{term}%")
   end

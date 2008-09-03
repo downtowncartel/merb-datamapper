@@ -1,0 +1,94 @@
+h1. Chapter 4 - Red Green Refactor
+
+h2. CRUD
+
+h3. Controller
+
+h4. app/controllers/books.rb
+
+<pre>
+<code class="ruby">
+class Books < Application
+
+  #....
+
+  def new
+    @message = request.message
+    @book = Book.new
+
+    display @book
+  end
+
+  def create(book)
+    @book = Book.new(book.merge(:owner => session.user))
+
+    if @book.save
+      redirect(url(:new_book), :message => "\"#{@book.short_title}\" has been added")
+    else
+      display @book, "books/new"
+    end
+  end
+end
+
+</code>
+</pre>
+
+h3. View
+
+h4. app/views/books/new.rb
+
+<pre>
+<code class="ruby">
+-if @message
+  .span-24
+    %span.message=@message
+.span-12
+  =form_for :book, :action => url(:books), :id => :new_book do
+    =fieldset :legend => "New Book" do
+      #isbn
+        =text_field :isbn, :label => "ISBN: "
+        =submit "lookup"
+      #short_title=text_field :short_title, :label => "Short Title: "
+      #long_title=text_field :long_title, :label => "Long Title: "
+      #author=text_field :author, :label => "Author(s): "
+      #publisher
+        =text_field :publisher, :label => "Publisher: "
+        =submit "create"
+      #notes=text_area :notes, :label => "Notes: "
+
+.span-8
+  =error_messages_for @book
+</code>
+</pre>
+
+h4. View CRUD Tips
+
+* Form helpers are in merb-plugins/merb_helpers, just <b>require "merb-helpers"</b> in <b>config/init.rb</b>.
+* Display errors with <b>error_message_for</b>.
+* Use <b>request.message</b> for message passing.
+
+h3. Router
+
+h4. config/router.rb
+
+<pre>
+<code class="ruby">
+Merb.logger.info("Compiling routes...")
+Merb::Router.prepare do |r|
+  r.to(:controller => 'books') do |books|
+    books.match(%r'/book/((?:\d{10})|(?:\d{13}))$').to(:action => 'isbn_lookup', :isbn => '[1]')
+
+    books.match('/books', :method => 'post').to(:action => 'create')
+    books.match('/books/new').to(:action => 'new').name(:new_book)
+
+    books.match('/book/:slug').to(:action => 'show').name(:book)
+    books.match('/books').to(:action => 'index')
+    books.match('/books/:term').to(:action => 'index').name(:books)
+  end
+
+  r.to(:controller => 'dash') do |dash|
+    dash.match('/').to(:action => 'index').name(:dash)
+  end
+end
+</code>
+</pre>
