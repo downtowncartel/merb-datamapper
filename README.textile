@@ -1,0 +1,24 @@
+h1. Merb + DataMapper Files
+
+h2. Git Repository
+
+<pre>
+  <code class="bash">
+    git clone git://github.com/downtowncartel/merb-datamapper.git
+    #(or use the link at the top)
+  </code>
+</pre>
+
+h2. Zip Files
+
+<pre>
+  <code class="bash">
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_1
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_3
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_4
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_5
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_6
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_7
+    wget http://github.com/downtowncartel/merb-datamapper/zipball/chapter_8
+  </code>
+</pre>
