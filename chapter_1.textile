@@ -1,0 +1,43 @@
+h1. Installation & Setup
+
+h2. Sake
+
+h3. Installing Sake
+
+<pre>
+<code class="bash">
+#if you don't have sake installed, run the following
+  merb+datamapper $ ./sake_install.sh
+</code>
+</pre>
+
+h3. Installing the Merb + DataMapper Tasks
+
+<pre>
+<code class="bash">
+  merb+datamapper $ sake -i merb-dev.sake
+  merb+datamapper $ sake -i dm-dev.
+</code>
+</pre>
+
+h2. Installing Merb + DataMapper (0.9.5)
+
+<pre>
+<code class="bash">
+#chery pick the gems you are missing out of the merb+datamapper/gems dir
+  merb+datamapper $ gem install gems/merb-core-0.9.5.gem
+</code>
+</pre>
+
+h2. Cloning & Tracking Merb + DataMapper Edge
+
+<pre>
+<code class="bash">
+  merb+datamapper $ mkdir code
+  merb+datamapper $ cd code
+  code $ sake merb:clone
+  code $ sake dm:clone
+  code $ sake merb:install:all
+  code $ sake dm:install
+</code>
+</pre>
