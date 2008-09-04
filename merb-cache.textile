@@ -1,0 +1,173 @@
+merb-cache was rewritten with a few goals in mind:
+# make it modulular
+# define a public API
+# do the heavy lifting on key generation
+# 100% thread-safe
+# work with multiple caching layers through the same API
+# keep it hackable
+ 
+h3. Stores
+ 
+First and foremost, cache stores have been seperated into two families: fundamental stores and strategy stores. A fundamental store is any store that interacts directly with the persistence layer. The **FileStore**, for example, is a fundamental store that reads & writes cache entries to the file system. **MemcachedStore** is also a fundamental store. They have almost identical functionality to the existing caching technique, only they implement a common API defined by **AbstractStore**.
+ 
+The strategy store is the new kid on the block. A strategy store wraps one or more fundamental stores, acting as a middle man between caching requests. For example, if you need to save memory on your Memcache server, you could wrap your **MemcachedStore** with a **GzipStore**. This would automatically compress the cached data when put into the cache, and decompressed on the way out. You can even wrap strategy caches with other strategy caches. In the last example, if you key was comprised of sensitive information, like a SSN, you might want to encrypt the key before storage. Wrapping your **GzipStore** in a **SHA1Store** would take care of that for you.
+ 
+h3. Public API
+ 
+The **AbstractStore** class defines 9 methods as the API:
+ 
+# **writable?(key, parameters = {}, conditions = {})**
+# **exists?(key, parameters = {})**
+# **read(key, parameters = {})**
+# **write(key, data = nil, parameters = {}, conditions = {})**
+# **write_all(key, data = nil, parameters = {}, conditions = {})**
+# **fetch(key, parameters = {}, conditions = {}, &blk)**
+# **delete(key, parameters = {})**
+# **delete_all**
+# **delete_all!**
+ 
+**AbstractStrategyStore** implements all of these with the exception of **delete_all**. If a strategy store can guarantee that calling **delete_all** on it's wrapped store(s) will only delete entries populated by the strategy store, it may define the safe version of **delete_all**. However, this is usually not the case, hence **delete_all** is not part of the public API for **AbstractStrategyStore**.
+ 
+A more detailed documentation on each method can be found here: LINK
+ 
+h3. Less Talk, More Code
+ 
+So here's how you can setup and use merb-cache in your merb app:
+ 
+h4. config/environments/development.rb
+
+<pre>
+<code class="ruby">
+  # create a fundamental memcache store named :memcache for localhost
+  Merb::Cache.setup(:memcache, Merb::Cache::MemcachedStore, {
+    :namespace => "my_app",
+    :servers => ["127.0.0.1:11211"]
+  }
+  
+  # a default FileStore
+  Merb::Cache.setup(Merb::Cache::FileStore)
+  
+  # another FileStore
+  Merb::Cache.setup(:tmp_cache, Merb::Cache::FileStore, :dir => "/tmp")
+</code>
+</pre>
+ 
+Now lets use these in a model:
+ 
+h4. app/models/tag.rb
+
+<pre>
+<code class="ruby">
+  class Tag
+    #...
+    
+    def find(parameters = {})
+      # poor man's identity map
+      
+      if Merb::Cache[:memcached].exists?("tags", parameters)
+        Merb::Cache[:memcached].read("tags", parameters)
+      else
+        returning(super(parameters)) do |results|
+          Merb::Cache[:memcached].write("tags", results, parameters)
+        end
+      end
+    end
+    
+    def popularity_rating
+      # lets keep the popularity rating cached for 30 seconds
+      # merb-cache will create a key from the model's id & the interval parameter
+      
+      Merb::Cache[:memcache].fetch(self.id, :interval => Time.now.to_i / 30) do
+        self.run_long_popularity_rating_query
+      end
+    end
+  end
+</code>
+</pre>
+ 
+Or, if you want to use memcache's built in expire option:
+
+<pre>
+<code class="ruby">
+  # expire a cache entry for "bar" (identified by the key "foo" and
+  # parameters {:baz => :bay}) in two hours
+  Merb::Cache[:memcache].write("foo", "bar", {:baz => :bay}, :expire_in => 2.hours)
+  
+  # this will fail, because FileStore cannot expire cache entries
+  Merb::Cache[:default].write("foo", "bar", {:baz => :bay}, :expire_in => 2.hours)
+  
+  # writing to the FileStore will fail, but the MemcachedStore will succeed
+  Merb::Cache[:default, :memcache].write("foo", "bar", {:baz => :bay}, :expire_in => 2.hours)
+  
+  # this will fail
+  Merb::Cache[:default, :memcached].write_all("foo", "bar", {:baz => :bay}, :expire_in => 2.hours)
+</code>
+</pre>
+ 
+h3. Strategy Stores
+ 
+Setting up strategy stores is very similar to fundamental stores:
+ 
+h4. config/environments/development.rb
+
+<pre>
+<code class="ruby">
+  # wraps the :memcache store we setup earlier
+  Merb::Cache.setup(:zipped, Merb::Cache::GzipStore[:memcache])
+  
+  # wrap a strategy store
+  Merb::Cache.setup(:sha_and_zip, Merb::Cache::SHA1Store[:zipped])
+  
+  # you can even use unnamed fundamental stores
+  Merb::Cache.setup(:zipped_images, Merb::Cache::GzipStore[Merb::Cache::FileStore],
+                    :dir => Merb.root / "public" / "images")
+  
+  
+  # or a combination or strategy & fundamental stores
+  module Merb::Cache #makes things a bit shorter
+  
+    setup(:secured, SHA1Store[GzipStore[FileStore], FileStore],
+          :dir => Merb.root / "private")
+  end
+</code>
+</pre>
+ 
+You can use these strategy stores exactly like fundamental stores in your app code.
+ 
+h3. Action & Page Caching
+ 
+Action & page caching have been implemented in strategy stores. So instead of manually specifying which type of caching you want for each action, you simply ask merb-cache to cache your action, and merb-cache will use the fastest available cache.
+ 
+First, let's setup our page & action stores:
+ 
+h4. config/environments/development.rb
+
+<pre>
+<code class="ruby">
+  # the order that stores are setup is important
+  # faster stores should be setup first
+  
+  # page cache to the public dir
+  Merb::Cache.setup(:page_store, Merb::Cache::PageCache[FileStore],
+                    :dir => Merb.root / "public")
+  
+  # action cache to memcache
+  Merb::Cache.setup(:action_store, Merb::Cache::ActionCache[:sha_and_zip])
+</code>
+</pre>
+ 
+And now in our controller:
+<pre>
+<code class="ruby">
+  class Tags &lt; Merb::Controller
+  
+    # index & show will be page cached to the public dir. The index
+    # action has no parameters, and the show parameter's are part of
+    # the query string, making them both page-cache'able
+    cache :index, :show
+    
+    def index
+      render
+    end
+</code>
+</pre>
